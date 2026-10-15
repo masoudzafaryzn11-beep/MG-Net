@@ -24,10 +24,11 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Clean & Create Flutter App
+      - name: Create Flutter App
         run: |
-          rm -rf mg_app
-          flutter create --org com.mg.vpn --project-name mg mg_app
+          flutter create mg_app --org com.mg.vpn
+          cd mg_app
+          flutter pub get
 
       - name: Inject Pure MG Code
         run: |
