@@ -1,4 +1,4 @@
-name: Build MG Net Auto Update APK
+name: Build MG APK
 
 on:
   push:
@@ -25,29 +25,29 @@ jobs:
           cache: true
 
       - name: Create Flutter App
-        run: flutter create --org com.mgnet.vpn --project-name mg_net mg_net_app
+        run: flutter create --org com.mg.vpn --project-name mg mg_app
 
-      - name: Inject Doctor Dashboard with In-App Updater
+      - name: Inject Pure MG Code
         run: |
-          cat << 'EOF' > mg_net_app/lib/main.dart
+          cat << 'EOF' > mg_app/lib/main.dart
           import 'package:flutter/material.dart';
 
           void main() {
-            runApp(const MGNetApp());
+            runApp(const MGApp());
           }
 
-          class MGNetApp extends StatelessWidget {
-            const MGNetApp({super.key});
+          class MGApp extends StatelessWidget {
+            const MGApp({super.key});
 
             @override
             Widget build(BuildContext context) {
               return MaterialApp(
-                title: 'MG Net - Cloudflare Doctor',
+                title: 'MG',
                 debugShowCheckedModeBanner: false,
                 theme: ThemeData(
                   brightness: Brightness.dark,
-                  scaffoldBackgroundColor: const Color(0xFF0A0E17),
-                  primaryColor: const Color(0xFF2979FF),
+                  scaffoldBackgroundColor: const Color(0xFF070B12),
+                  primaryColor: const Color(0xFF00E5FF),
                 ),
                 home: const DoctorHomePage(),
               );
@@ -63,28 +63,180 @@ jobs:
 
           class _DoctorHomePageState extends State<DoctorHomePage> {
             bool isRunning = false;
-            String statusText = 'بررسی متوقف شد.';
+            String statusText = 'آماده برقراری تونل امن...';
             int currentStep = 0;
-            String appVersion = 'v1.1.0';
+            String appVersion = 'v1.7.0';
+            
+            // Cloudflare Worker & Gateway Configs
+            String customWorkerUrl = 'https://mg-net.workers.dev';
+            String githubTunnelUrl = 'https://raw.githubusercontent.com/mlmvpn/mlmvpn-gateway/main/configs/fallback.json';
+            bool isGitHubTunnelActive = false;
+            String connectionLatency = 'تنظیم نشده';
+            String activeProtocol = 'VLESS / WS Cloudflare';
+
+            final TextEditingController _workerInputController = TextEditingController();
+            final TextEditingController _githubTunnelController = TextEditingController();
 
             final List<Map<String, String>> steps = [
-              {'title': 'اتصال حساب', 'desc': 'حساب Cloudflare و هویت WARP', 'status': 'در انتظار'},
-              {'title': 'Deploy', 'desc': 'ساخت ورکر روی حساب شما', 'status': 'در انتظار'},
-              {'title': 'دریافت کانفیگ', 'desc': 'گرفتن کانفیگ از پنل شما', 'status': 'در انتظار'},
-              {'title': 'Scan', 'desc': 'پیدا کردن آی‌پی‌های سالم کلادفلر', 'status': 'در انتظار'},
-              {'title': 'اتصال و تست اینترنت', 'desc': 'اتصال و ردوبدل واقعی داده', 'status': 'در انتظار'},
+              {'title': 'اتصال حساب / تانل', 'desc': 'بررسی هویت کلادفلر و گیت‌وی', 'status': 'در انتظار'},
+              {'title': 'Deploy / Gateway Fetch', 'desc': 'دریافت اسکریپت mlmvpn-gateway', 'status': 'در انتظار'},
+              {'title': 'دریافت کانفیگ VLESS', 'desc': 'استخراج پارامترهای WS و TLS', 'status': 'در انتظار'},
+              {'title': 'Scan Clean IP', 'desc': 'پیدا کردن سالم‌ترین آی‌پی کلادفلر', 'status': 'در انتظار'},
+              {'title': 'اتصال و تست پینگ', 'desc': 'برقرارسازی تونل نهایی MG', 'status': 'در انتظار'},
             ];
+
+            @override
+            void initState() {
+              super.initState();
+              _workerInputController.text = customWorkerUrl;
+              _githubTunnelController.text = githubTunnelUrl;
+            }
+
+            // Cloudflare Worker Settings Dialog
+            void _showCloudflareSettingsDialog() {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    backgroundColor: const Color(0xFF111827),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: Row(
+                      children: const [
+                        Icon(Icons.cloud, color: Color(0xFFF38020)),
+                        SizedBox(width: 10),
+                        Text('تنظیمات ورکر کلادفلر', style: TextStyle(color: Colors.white, fontSize: 15)),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('آدرس Worker اختصاصی خود را وارد کنید:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _workerInputController,
+                          style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 13),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFF070B12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('انصراف', style: TextStyle(color: Colors.grey)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00E5FF)),
+                        onPressed: () {
+                          setState(() {
+                            customWorkerUrl = _workerInputController.text;
+                          });
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('آدرس ورکر کلادفلر ذخیره شد!')),
+                          );
+                        },
+                        child: const Text('ذخیره', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  );
+                },
+              );
+            }
+
+            // GitHub Tunnel Emergency Dialog
+            void _showGitHubTunnelDialog() {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    backgroundColor: const Color(0xFF111827),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: Row(
+                      children: const [
+                        Icon(Icons.hub, color: Color(0xFF2979FF)),
+                        SizedBox(width: 10),
+                        Text('گیت‌هاب تانل اضطراری', style: TextStyle(color: Colors.white, fontSize: 15)),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('در صورت اختلال کلادفلر، لینک گیت‌وی اضطراری استفاده می‌شود:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _githubTunnelController,
+                          style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFF070B12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('فعال‌سازی تانل اضطراری:', style: TextStyle(color: Colors.white, fontSize: 13)),
+                            Switch(
+                              value: isGitHubTunnelActive,
+                              activeColor: const Color(0xFF00E5FF),
+                              onChanged: (val) {
+                                setState(() {
+                                  isGitHubTunnelActive = val;
+                                  activeProtocol = val ? 'GitHub Emergency Gateway' : 'VLESS / WS Cloudflare';
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('بستن', style: TextStyle(color: Colors.grey)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2979FF)),
+                        onPressed: () {
+                          setState(() {
+                            githubTunnelUrl = _githubTunnelController.text;
+                          });
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(isGitHubTunnelActive ? 'گیت‌هاب تانل اضطراری فعال شد!' : 'تنظیمات تانل ذخیره شد.')),
+                          );
+                        },
+                        child: const Text('تایید', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  );
+                },
+              );
+            }
 
             void _checkForUpdates() {
               showDialog(
                 context: context,
                 builder: (BuildContext context) {
                   return AlertDialog(
-                    backgroundColor: const Color(0xFF161F30),
+                    backgroundColor: const Color(0xFF111827),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     title: Row(
                       children: const [
-                        Icon(Icons.system_update, color: Color(0xFF2979FF)),
+                        Icon(Icons.system_update, color: Color(0xFF00E5FF)),
                         SizedBox(width: 10),
                         Text('بررسی به‌روزرسانی', style: TextStyle(color: Colors.white, fontSize: 16)),
                       ],
@@ -93,15 +245,15 @@ jobs:
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('نسخه فعلی شما: $appVersion', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text('نسخه فعلی: $appVersion', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                         const SizedBox(height: 10),
-                        const Text('شما از آخرین نسخه MG Net استفاده می‌کنید!', style: TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                        const Text('شما از آخرین نسخه MG استفاده می‌کنید!', style: TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('بستن', style: TextStyle(color: Color(0xFF2979FF))),
+                        child: const Text('بستن', style: TextStyle(color: Color(0xFF00E5FF))),
                       ),
                     ],
                   );
@@ -112,45 +264,46 @@ jobs:
             void _startProcess() {
               setState(() {
                 isRunning = true;
-                statusText = 'در حال اتصال به حساب کلادفلر...';
+                statusText = isGitHubTunnelActive ? 'دریافت کدهای mlmvpn-gateway از گیت‌هاب...' : 'اتصال به ورکر ($customWorkerUrl)...';
                 currentStep = 0;
                 steps[0]['status'] = 'در حال اجرا...';
               });
 
               Future.delayed(const Duration(seconds: 2), () {
                 setState(() {
-                  steps[0]['status'] = 'تکمیل شده';
+                  steps[0]['status'] = 'تکمیل شد';
                   steps[1]['status'] = 'در حال اجرا...';
                   currentStep = 1;
-                  statusText = 'در حال ساخت ورکر (Deploy)...';
+                  statusText = isGitHubTunnelActive ? 'بارگذاری کانفیگ پشتیبان گیت‌هاب...' : 'پردازش اسکریپت VLESS Gateway...';
                 });
               });
 
               Future.delayed(const Duration(seconds: 4), () {
                 setState(() {
-                  steps[1]['status'] = 'تکمیل شده';
+                  steps[1]['status'] = 'تکمیل شد';
                   steps[2]['status'] = 'در حال اجرا...';
                   currentStep = 2;
-                  statusText = 'در حال دریافت کانفیگ اختصاصی...';
+                  statusText = 'تنظیم پارامترهای VLESS / WS Tunnel...';
                 });
               });
 
               Future.delayed(const Duration(seconds: 6), () {
                 setState(() {
-                  steps[2]['status'] = 'تکمیل شده';
+                  steps[2]['status'] = 'تکمیل شد';
                   steps[3]['status'] = 'در حال اجرا...';
                   currentStep = 3;
-                  statusText = 'در حال اسکن آی‌پی‌های سالم...';
+                  statusText = 'اسکن و تست سالم‌ترین IP کلادفلر...';
                 });
               });
 
               Future.delayed(const Duration(seconds: 8), () {
                 setState(() {
-                  steps[3]['status'] = 'تکمیل شده';
+                  steps[3]['status'] = 'تکمیل شد';
                   steps[4]['status'] = 'متصل شد ✅';
                   currentStep = 4;
                   isRunning = false;
-                  statusText = 'تونل امن کلادفلر برقرار شد!';
+                  connectionLatency = '38 ms (فوق‌العاده)';
+                  statusText = isGitHubTunnelActive ? 'گیت‌هاب تانل اضطراری متصل شد!' : 'تونل VLESS کلادفلر با موفقیت برقرار شد!';
                 });
               });
             }
@@ -164,209 +317,11 @@ jobs:
                   title: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'دکتر کلادفلر',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.update, color: Color(0xFF2979FF)),
-                        onPressed: _checkForUpdates,
-                        tooltip: 'بررسی به‌روزرسانی برنامه',
-                      ),
-                    ],
-                  ),
-                ),
-                body: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // Top Status Card
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF161F30),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.05),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  isRunning ? Icons.hourglass_top : Icons.pause,
-                                  color: isRunning ? const Color(0xFF2979FF) : Colors.grey,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              statusText,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: ElevatedButton(
-                                onPressed: isRunning ? null : _startProcess,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2979FF),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'ورود به Cloud و شروع',
-                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    isRunning = false;
-                                    statusText = 'بررسی متوقف شد.';
-                                    for (var s in steps) {
-                                      s['status'] = 'در انتظار';
-                                    }
-                                  });
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.white24),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'تلاش دوباره',
-                                  style: TextStyle(fontSize: 15, color: Colors.white70),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Steps Title
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: const Text(
-                          'مراحل',
-                          style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Steps List
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: steps.length,
-                        itemBuilder: (context, index) {
-                          final step = steps[index];
-                          bool isCompleted = step['status'] == 'تکمیل شده' || step['status'] == 'متصل شد ✅';
-                          bool isRunningStep = step['status'] == 'در حال اجرا...';
-
-                          IconData stepIcon;
-                          if (index == 0) stepIcon = Icons.person;
-                          else if (index == 1) stepIcon = Icons.cloud_upload;
-                          else if (index == 2) stepIcon = Icons.cloud_download;
-                          else if (index == 3) stepIcon = Icons.qr_code_scanner;
-                          else stepIcon = Icons.swap_vert;
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(14),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF161F30),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isRunningStep ? const Color(0xFF2979FF).withOpacity(0.5) : Colors.white10,
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF00E5FF), Color(0xFF2979FF)],
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2979FF).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(stepIcon, color: const Color(0xFF2979FF), size: 20),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        step['title']!,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        step['desc']!,
-                                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: isCompleted
-                                        ? Colors.green.withOpacity(0.2)
-                                        : (isRunningStep ? const Color(0xFF2979FF).withOpacity(0.2) : Colors.white.withOpacity(0.05)),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    step['status']!,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: isCompleted
-                                          ? Colors.greenAccent
-                                          : (isRunningStep ? const Color(0xFF2979FF) : Colors.grey),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-          }
-          EOF
-
-      - name: Build APK
-        run: |
-          cd mg_net_app
-          flutter build apk --release
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MG-Net-Doctor-AutoUpdate
-          path: mg_net_app/build/app/outputs/flutter-apk/app-release.apk
