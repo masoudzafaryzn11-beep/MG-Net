@@ -1,4 +1,4 @@
-name: Build MG Net Pro Dashboard APK
+name: Build MG Net Auto Update APK
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
       - name: Create Flutter App
         run: flutter create --org com.mgnet.vpn --project-name mg_net mg_net_app
 
-      - name: Inject Cloudflare Doctor Dashboard UI
+      - name: Inject Doctor Dashboard with In-App Updater
         run: |
           cat << 'EOF' > mg_net_app/lib/main.dart
           import 'package:flutter/material.dart';
@@ -65,6 +65,7 @@ jobs:
             bool isRunning = false;
             String statusText = 'بررسی متوقف شد.';
             int currentStep = 0;
+            String appVersion = 'v1.1.0';
 
             final List<Map<String, String>> steps = [
               {'title': 'اتصال حساب', 'desc': 'حساب Cloudflare و هویت WARP', 'status': 'در انتظار'},
@@ -74,6 +75,40 @@ jobs:
               {'title': 'اتصال و تست اینترنت', 'desc': 'اتصال و ردوبدل واقعی داده', 'status': 'در انتظار'},
             ];
 
+            void _checkForUpdates() {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    backgroundColor: const Color(0xFF161F30),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: Row(
+                      children: const [
+                        Icon(Icons.system_update, color: Color(0xFF2979FF)),
+                        SizedBox(width: 10),
+                        Text('بررسی به‌روزرسانی', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('نسخه فعلی شما: $appVersion', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        const SizedBox(height: 10),
+                        const Text('شما از آخرین نسخه MG Net استفاده می‌کنید!', style: TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('بستن', style: TextStyle(color: Color(0xFF2979FF))),
+                      ),
+                    ],
+                  );
+                },
+              );
+            }
+
             void _startProcess() {
               setState(() {
                 isRunning = true;
@@ -82,7 +117,6 @@ jobs:
                 steps[0]['status'] = 'در حال اجرا...';
               });
 
-              // Simulate step-by-step process
               Future.delayed(const Duration(seconds: 2), () {
                 setState(() {
                   steps[0]['status'] = 'تکمیل شده';
@@ -134,13 +168,11 @@ jobs:
                         'دکتر کلادفلر',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
                       ),
-                      Row(
-                        children: const [
-                          Text('خانه', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                          SizedBox(width: 4),
-                          Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white70),
-                        ],
-                      )
+                      IconButton(
+                        icon: const Icon(Icons.update, color: Color(0xFF2979FF)),
+                        onPressed: _checkForUpdates,
+                        tooltip: 'بررسی به‌روزرسانی برنامه',
+                      ),
                     ],
                   ),
                 ),
@@ -336,5 +368,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Net-Cloudflare-Doctor
+          name: MG-Net-Doctor-AutoUpdate
           path: mg_net_app/build/app/outputs/flutter-apk/app-release.apk
