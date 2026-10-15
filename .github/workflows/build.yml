@@ -1,4 +1,4 @@
-name: Build MG Net Cloudflare Edition APK
+name: Build MG Net Pro Dashboard APK
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
       - name: Create Flutter App
         run: flutter create --org com.mgnet.vpn --project-name mg_net mg_net_app
 
-      - name: Inject Cloudflare Integrated VPN UI
+      - name: Inject Cloudflare Doctor Dashboard UI
         run: |
           cat << 'EOF' > mg_net_app/lib/main.dart
           import 'package:flutter/material.dart';
@@ -42,53 +42,82 @@ jobs:
             @override
             Widget build(BuildContext context) {
               return MaterialApp(
-                title: 'MG Net VPN',
+                title: 'MG Net - Cloudflare Doctor',
                 debugShowCheckedModeBanner: false,
                 theme: ThemeData(
                   brightness: Brightness.dark,
-                  scaffoldBackgroundColor: const Color(0xFF090D16),
-                  primaryColor: const Color(0xFFF38020), // Cloudflare Orange Accent
+                  scaffoldBackgroundColor: const Color(0xFF0A0E17),
+                  primaryColor: const Color(0xFF2979FF),
                 ),
-                home: const VPNHomePage(),
+                home: const DoctorHomePage(),
               );
             }
           }
 
-          class VPNHomePage extends StatefulWidget {
-            const VPNHomePage({super.key});
+          class DoctorHomePage extends StatefulWidget {
+            const DoctorHomePage({super.key});
 
             @override
-            State<VPNHomePage> createState() => _VPNHomePageState();
+            State<DoctorHomePage> createState() => _DoctorHomePageState();
           }
 
-          class _VPNHomePageState extends State<VPNHomePage> {
-            bool isConnected = false;
-            bool isConnecting = false;
-            String connectionStatus = 'غیرفعال';
-            String selectedServer = 'Cloudflare Worker (Clean IP - Fast)';
-            int ping = 45;
-            
-            final TextEditingController _workerController = TextEditingController(
-              text: 'https://mg-net.workers.dev/vless',
-            );
+          class _DoctorHomePageState extends State<DoctorHomePage> {
+            bool isRunning = false;
+            String statusText = 'بررسی متوقف شد.';
+            int currentStep = 0;
 
-            void _toggleConnection() {
+            final List<Map<String, String>> steps = [
+              {'title': 'اتصال حساب', 'desc': 'حساب Cloudflare و هویت WARP', 'status': 'در انتظار'},
+              {'title': 'Deploy', 'desc': 'ساخت ورکر روی حساب شما', 'status': 'در انتظار'},
+              {'title': 'دریافت کانفیگ', 'desc': 'گرفتن کانفیگ از پنل شما', 'status': 'در انتظار'},
+              {'title': 'Scan', 'desc': 'پیدا کردن آی‌پی‌های سالم کلادفلر', 'status': 'در انتظار'},
+              {'title': 'اتصال و تست اینترنت', 'desc': 'اتصال و ردوبدل واقعی داده', 'status': 'در انتظار'},
+            ];
+
+            void _startProcess() {
               setState(() {
-                if (isConnected) {
-                  isConnected = false;
-                  connectionStatus = 'قطع شد';
-                } else {
-                  isConnecting = true;
-                  connectionStatus = 'در حال اسکن IP کلادفلر و اتصال...';
-                  
-                  Future.delayed(const Duration(seconds: 2), () {
-                    setState(() {
-                      isConnecting = false;
-                      isConnected = true;
-                      connectionStatus = 'متصل به شبکه کلادفلر';
-                    });
-                  });
-                }
+                isRunning = true;
+                statusText = 'در حال اتصال به حساب کلادفلر...';
+                currentStep = 0;
+                steps[0]['status'] = 'در حال اجرا...';
+              });
+
+              // Simulate step-by-step process
+              Future.delayed(const Duration(seconds: 2), () {
+                setState(() {
+                  steps[0]['status'] = 'تکمیل شده';
+                  steps[1]['status'] = 'در حال اجرا...';
+                  currentStep = 1;
+                  statusText = 'در حال ساخت ورکر (Deploy)...';
+                });
+              });
+
+              Future.delayed(const Duration(seconds: 4), () {
+                setState(() {
+                  steps[1]['status'] = 'تکمیل شده';
+                  steps[2]['status'] = 'در حال اجرا...';
+                  currentStep = 2;
+                  statusText = 'در حال دریافت کانفیگ اختصاصی...';
+                });
+              });
+
+              Future.delayed(const Duration(seconds: 6), () {
+                setState(() {
+                  steps[2]['status'] = 'تکمیل شده';
+                  steps[3]['status'] = 'در حال اجرا...';
+                  currentStep = 3;
+                  statusText = 'در حال اسکن آی‌پی‌های سالم...';
+                });
+              });
+
+              Future.delayed(const Duration(seconds: 8), () {
+                setState(() {
+                  steps[3]['status'] = 'تکمیل شده';
+                  steps[4]['status'] = 'متصل شد ✅';
+                  currentStep = 4;
+                  isRunning = false;
+                  statusText = 'تونل امن کلادفلر برقرار شد!';
+                });
               });
             }
 
@@ -96,174 +125,200 @@ jobs:
             Widget build(BuildContext context) {
               return Scaffold(
                 appBar: AppBar(
-                  backgroundColor: const Color(0xFF111827),
+                  backgroundColor: Colors.transparent,
                   elevation: 0,
                   title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF38020).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.cloud_queue, color: Color(0xFFF38020), size: 24),
-                      ),
-                      const SizedBox(width: 12),
                       const Text(
-                        'MG Net',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          color: Colors.white,
-                        ),
+                        'دکتر کلادفلر',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF38020),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'CF',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black),
-                        ),
+                      Row(
+                        children: const [
+                          Text('خانه', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                          SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white70),
+                        ],
                       )
                     ],
                   ),
                 ),
                 body: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Cloudflare Status Card
+                      // Top Status Card
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF111827),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isConnected 
-                                ? const Color(0xFF00E676) 
-                                : const Color(0xFFF38020).withOpacity(0.3),
-                          ),
+                          color: const Color(0xFF161F30),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white10),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.05),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  isRunning ? Icons.hourglass_top : Icons.pause,
+                                  color: isRunning ? const Color(0xFF2979FF) : Colors.grey,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              statusText,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: isRunning ? null : _startProcess,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2979FF),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'ورود به Cloud و شروع',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    isRunning = false;
+                                    statusText = 'بررسی متوقف شد.';
+                                    for (var s in steps) {
+                                      s['status'] = 'در انتظار';
+                                    }
+                                  });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.white24),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'تلاش دوباره',
+                                  style: TextStyle(fontSize: 15, color: Colors.white70),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Steps Title
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: const Text(
+                          'مراحل',
+                          style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Steps List
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: steps.length,
+                        itemBuilder: (context, index) {
+                          final step = steps[index];
+                          bool isCompleted = step['status'] == 'تکمیل شده' || step['status'] == 'متصل شد ✅';
+                          bool isRunningStep = step['status'] == 'در حال اجرا...';
+
+                          IconData stepIcon;
+                          if (index == 0) stepIcon = Icons.person;
+                          else if (index == 1) stepIcon = Icons.cloud_upload;
+                          else if (index == 2) stepIcon = Icons.cloud_download;
+                          else if (index == 3) stepIcon = Icons.qr_code_scanner;
+                          else stepIcon = Icons.swap_vert;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF161F30),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isRunningStep ? const Color(0xFF2979FF).withOpacity(0.5) : Colors.white10,
+                              ),
+                            ),
+                            child: Row(
                               children: [
-                                const Text('سرویس اتصال کلادفلر', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                const SizedBox(height: 4),
-                                Text(
-                                  connectionStatus,
-                                  style: TextStyle(
-                                    color: isConnected ? const Color(0xFF00E676) : const Color(0xFFF38020),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2979FF).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(stepIcon, color: const Color(0xFF2979FF), size: 20),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        step['title']!,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        step['desc']!,
+                                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: isCompleted
+                                        ? Colors.green.withOpacity(0.2)
+                                        : (isRunningStep ? const Color(0xFF2979FF).withOpacity(0.2) : Colors.white.withOpacity(0.05)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    step['status']!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isCompleted
+                                          ? Colors.greenAccent
+                                          : (isRunningStep ? const Color(0xFF2979FF) : Colors.grey),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            if (isConnected)
-                              Row(
-                                children: [
-                                  const Icon(Icons.speed, color: Colors.grey, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text('$ping ms', style: const TextStyle(color: Color(0xFF00E676), fontSize: 12)),
-                                ],
-                              )
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 35),
-
-                      // Connect Button
-                      GestureDetector(
-                        onTap: isConnecting ? null : _toggleConnection,
-                        child: Container(
-                          width: 170,
-                          height: 170,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: isConnected
-                                  ? [const Color(0xFF00E676), const Color(0xFF00C853)]
-                                  : [const Color(0xFFF38020), const Color(0xFFE65100)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isConnected ? const Color(0xFF00E676) : const Color(0xFFF38020)).withOpacity(0.4),
-                                blurRadius: 25,
-                                spreadRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: isConnecting
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        isConnected ? Icons.shield : Icons.power_settings_new,
-                                        size: 60,
-                                        color: Colors.white,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        isConnected ? 'متصل شد' : 'اتصال کلادفلر',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Worker Config Field
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF111827),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('آدرس اختصاصی Cloudflare Worker', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _workerController,
-                              style: const TextStyle(color: Color(0xFFF38020), fontSize: 12),
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: const Color(0xFF090D16),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.sync, color: Color(0xFFF38020)),
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('کانفیگ اختصاصی کلادفلر به‌روزرسانی شد!')),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -281,5 +336,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Net-Cloudflare-Edition
+          name: MG-Net-Cloudflare-Doctor
           path: mg_net_app/build/app/outputs/flutter-apk/app-release.apk
