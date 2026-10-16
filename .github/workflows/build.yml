@@ -28,12 +28,12 @@ jobs:
         run: |
           flutter create . --org com.mg.vpn --project-name mg --platforms android
 
-      - name: Customize App and UI via Python
+      - name: Inject MLM VPN Style Code via Python
         run: |
           python3 -c "
           import os
 
-          # Update AndroidManifest.xml for app name
+          # Update AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -43,7 +43,7 @@ jobs:
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(content)
 
-          # Write stunning main.dart
+          # Write main.dart
           os.makedirs('lib', exist_ok=True)
           code = '''import 'package:flutter/material.dart';
           import 'dart:async';
@@ -62,9 +62,8 @@ jobs:
                 debugShowCheckedModeBanner: false,
                 theme: ThemeData(
                   brightness: Brightness.dark,
-                  scaffoldBackgroundColor: const Color(0xFF030712),
+                  scaffoldBackgroundColor: const Color(0xFF070B14),
                   primaryColor: const Color(0xFF00E5FF),
-                  fontFamily: 'sans-serif',
                 ),
                 home: const MGHomePage(),
               );
@@ -78,136 +77,31 @@ jobs:
             State<MGHomePage> createState() => _MGHomePageState();
           }
 
-          class _MGHomePageState extends State<MGHomePage> with SingleTickerProviderStateMixin {
+          class _MGHomePageState extends State<MGHomePage> {
             bool isConnected = false;
             bool isConnecting = false;
-            String statusTitle = 'آماده اتصال امن';
-            String statusSubtitle = 'تونل VLESS / WS کلادفلر آماده است';
-            String currentPing = '-- ms';
-            String activeGateway = 'Cloudflare Edge (Direct)';
-            bool useGitHubFallback = false;
-
-            late AnimationController _animController;
-
-            @override
-            void initState() {
-              super.initState();
-              _animController = AnimationController(
-                vsync: this,
-                duration: const Duration(seconds: 2),
-              )..repeat(reverse: true);
-            }
-
-            @override
-            void dispose() {
-              _animController.dispose();
-              super.dispose();
-            }
+            String pingText = '-- ms';
+            String networkText = 'Cloudflare Edge';
 
             void _toggleConnection() {
               if (isConnected) {
                 setState(() {
                   isConnected = false;
                   isConnecting = false;
-                  statusTitle = 'آماده اتصال امن';
-                  statusSubtitle = 'تونل قطع شد';
-                  currentPing = '-- ms';
+                  pingText = '-- ms';
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('اتصال با موفقیت قطع شد.')),
-                );
               } else {
                 setState(() {
                   isConnecting = true;
-                  statusTitle = useGitHubFallback ? 'اتصال از طریق گیت‌هاب اضطراری...' : 'اسکن Clean IP و برقراری تونل...';
-                  statusSubtitle = 'لطفاً چند لحظه صبر کنید';
                 });
-
-                Timer(const Duration(seconds: 3), () {
+                Timer(const Duration(seconds: 2), () {
                   setState(() {
                     isConnecting = false;
                     isConnected = true;
-                    statusTitle = useGitHubFallback ? 'متصل (گیت‌هاب پشتیبان 🟢)' : 'متصل و امن (کلادفلر ☁️)';
-                    statusSubtitle = 'رمزنگاری VLESS / WebSocket فعال';
-                    currentPing = useGitHubFallback ? '45 ms' : '28 ms';
+                    pingText = '28 ms';
                   });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تونل امن MG با موفقیت برقرار شد! ✅', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)), backgroundColor: Color(0xFF00E5FF)),
-                  );
                 });
               }
-            }
-
-            void _showSettings() {
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: const Color(0xFF0F172A),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                builder: (context) {
-                  return StatefulBuilder(
-                    builder: (BuildContext context, StateSetter setStateModal) {
-                      return Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('تنظیمات پیشرفته MG', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                                IconButton(icon: const Icon(Icons.close, color: Colors.grey), onPressed: () => Navigator.pop(context)),
-                              ],
-                            ),
-                            const Divider(color: Colors.white24),
-                            const SizedBox(height: 10),
-                            const Text('انتخاب دروازه اتصال (Gateway):', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                            const SizedBox(height: 12),
-                            SwitchListTile(
-                              title: const Text('فعال‌سازی تانل اضطراری گیت‌هاب', style: TextStyle(color: Colors.white, fontSize: 14)),
-                              subtitle: const Text('پشتیبان‌گیری در صورت اختلال کلادفلر', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                              value: useGitHubFallback,
-                              activeColor: const Color(0xFF00E5FF),
-                              onChanged: (val) {
-                                setStateModal(() {
-                                  useGitHubFallback = val;
-                                });
-                                setState(() {
-                                  useGitHubFallback = val;
-                                  activeGateway = val ? 'GitHub Emergency Gateway' : 'Cloudflare Edge (Direct)';
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.info_outline, color: Color(0xFF00E5FF)),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      useGitHubFallback ? 'حالت اضطراری گیت‌هاب فعال است. ترافیک از مخزن پشتیبان هدایت می‌شود.' : 'حالت عادی فعال است. اتصال مستقیم از طریق VLESS و Cloudflare برقرار می‌شود.',
-                                      style: const TextStyle(color: Colors.white70, fontSize: 11),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              );
             }
 
             @override
@@ -219,170 +113,124 @@ jobs:
                   title: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF3B82F6)]),
-                          borderRadius: BorderRadius.circular(10),
+                          gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF2979FF)]),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('MG', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 14)),
+                        child: const Text('MG', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       const Text('MG VPN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                     ],
                   ),
                   actions: [
                     IconButton(
-                      icon: const Icon(Icons.settings_outlined, color: Color(0xFF00E5FF)),
-                      onPressed: _showSettings,
-                    ),
+                      icon: const Icon(Icons.settings, color: Color(0xFF00E5FF)),
+                      onPressed: () {},
+                    )
                   ],
                 ),
                 body: Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
                   child: Column(
                     children: [
-                      // Status Header Card
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isConnected 
-                                ? [const Color(0xFF064E3B), const Color(0xFF022C22)] 
-                                : [const Color(0xFF1E293B), const Color(0xFF0F172A)],
+                      const SizedBox(height: 10),
+                      // Main Shield Card
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.white10),
                           ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isConnected ? const Color(0xFF10B981) : const Color(0xFF334155),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(statusTitle, style: TextStyle(color: isConnected ? const Color(0xFF34D399) : Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 4),
-                                Text(statusSubtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isConnected ? const Color(0xFF059669) : const Color(0xFF334155),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(isConnected ? 'فعال' : 'غیرفعال', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-
-                      // Center Glowing Button
-                      Center(
-                        child: GestureDetector(
-                          onTap: isConnecting ? null : _toggleConnection,
-                          child: AnimatedBuilder(
-                            animation: _animController,
-                            builder: (context, child) {
-                              return Container(
-                                width: 180,
-                                height: 180,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: RadialGradient(
-                                    colors: isConnected
-                                        ? [const Color(0xFF00E5FF), const Color(0xFF0F172A)]
-                                        : [const Color(0xFF1E293B), const Color(0xFF0F172A)],
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: (isConnected ? const Color(0xFF00E5FF) : const Color(0xFF3B82F6)).withOpacity(0.3 + (_animController.value * 0.2)),
-                                      blurRadius: 30,
-                                      spreadRadius: 5 + (_animController.value * 5),
-                                    )
-                                  ],
-                                  border: Border.all(
-                                    color: isConnected ? const Color(0xFF00E5FF) : const Color(0xFF3B82F6),
-                                    width: 3,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Shield Icon Stack
+                              Container(
+                                width: 130,
+                                height: 150,
+                                decoration: const BoxDecoration(
+                                  image: DecorationImage(
+                                    image: NetworkImage('https://raw.githubusercontent.com/cloudflare/cloudflare-docs/main/static/favicon.ico'),
+                                    fit: BoxFit.contain,
                                   ),
                                 ),
-                                child: Center(
-                                  child: isConnecting
-                                      ? const CircularProgressIndicator(color: Color(0xFF00E5FF))
-                                      : Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              isConnected ? Icons.power_settings_new : Icons.lock_outline,
-                                              size: 50,
-                                              color: isConnected ? Colors.black : const Color(0xFF00E5FF),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              isConnected ? 'قطع اتصال' : 'اتصال',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: isConnected ? Colors.black : Colors.white,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                child: Icon(
+                                  Icons.shield,
+                                  size: 130,
+                                  color: isConnected ? const Color(0xFF00E5FF) : const Color(0xFF2979FF),
                                 ),
-                              );
-                            },
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'CLOUDFLARE',
+                                style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'WARP',
+                                style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.black, letterSpacing: 3),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                isConnected ? 'متصل' : 'قطع اتصال',
+                                style: TextStyle(
+                                  color: isConnected ? Colors.greenAccent : Colors.white60,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                isConnected ? 'ترافیک شما امن است' : 'آماده برقراری اتصال',
+                                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-
-                      const Spacer(),
-
-                      // Stats Footer Cards
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F172A),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFF1E293B)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('پینگ (Latency)', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                                  const SizedBox(height: 6),
-                                  Text(currentPing, style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 16, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F172A),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFF1E293B)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('دروازه اتصال', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                                  const SizedBox(height: 6),
-                                  Text(activeGateway, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 20),
+
+                      // Ping and Network Status Text
+                      Text(
+                        'شبکه: $networkText  |  پینگ: $pingText',
+                        style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Bottom Neon Action Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: isConnecting ? null : _toggleConnection,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isConnected ? const Color(0xFF0088FF) : const Color(0xFF00E5FF),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 8,
+                            shadowColor: const Color(0xFF00E5FF).withOpacity(0.5),
+                          ),
+                          child: isConnecting
+                              ? const CircularProgressIndicator(color: Colors.black)
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.power_settings_new, color: Colors.black, size: 24),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      isConnected ? 'قطع اتصال' : 'اتصال سریع',
+                                      style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                     ],
                   ),
                 ),
